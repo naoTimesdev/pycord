@@ -93,9 +93,6 @@ class SlashCommand(ApplicationCommand):
         return params
 
     def parse_options(self, params: OrderedDict[str, inspect.Parameter]) -> List[Option]:
-        # Remove ctx, this needs to refactored when used in Cogs
-        params.pop(list(params)[0])
-
         final_options = []
 
         for p_name, p_obj in params.items():
