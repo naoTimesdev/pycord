@@ -79,22 +79,31 @@ class SlashCommand(ApplicationCommand):
         self.is_subcommand: bool = False
 
         params = OrderedDict(inspect.signature(self.callback).parameters)
-        self.options = self.parse_options(params)
+        self.options = self.parse_options(self.clean_options(params))
 
-    def parse_options(self, params: OrderedDict) -> List[Option]:
-        final_options = []
+    @classmethod
+    def clean_options(params: OrderedDict[str, inspect.Parameter]) -> List[Option]:
+        # Remove self if exist or is in class
+        first_param = list(params)[0]
+        first_param_val = params[first_param]
+        if first_param_val.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD and first_param == "self":
+            params.pop(first_param)
+        # Remove ctx
+        params.pop(list(params)[0])
+        return params
 
+    def parse_options(self, params: OrderedDict[str, inspect.Parameter]) -> List[Option]:
         # Remove ctx, this needs to refactored when used in Cogs
-        params.pop(list(params)[0]) 
+        params.pop(list(params)[0])
 
         final_options = []
-        
+
         for p_name, p_obj in params.items():
 
             option = p_obj.annotation
             if option == inspect.Parameter.empty:
                 option = str
-            
+
             if self._is_typing_optional(option):
                 option = Option(option.__args__[0], "No description provided", required=False)
 
@@ -102,7 +111,7 @@ class SlashCommand(ApplicationCommand):
                 option = Option(option, "No description provided")
                 if p_obj.default != inspect.Parameter.empty:
                     option.required = False
-                
+
             option.default = option.default or p_obj.default
 
             if option.default == inspect.Parameter.empty:
@@ -110,12 +119,11 @@ class SlashCommand(ApplicationCommand):
 
             if option.name is None:
                 option.name = p_name
-                
+
             final_options.append(option)
 
         return final_options
 
-        
     def _is_typing_optional(self, annotation):
         return getattr(annotation, "__origin__", None) is Union and type(None) in annotation.__args__  # type: ignore
 
