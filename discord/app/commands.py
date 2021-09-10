@@ -81,7 +81,7 @@ class SlashCommand(ApplicationCommand):
         params = OrderedDict(inspect.signature(self.callback).parameters)
         self.options = self.parse_options(self.clean_options(params))
 
-    @classmethod
+    @staticmethod
     def clean_options(params: OrderedDict[str, inspect.Parameter]) -> List[Option]:
         # Remove self if exist or is in class
         first_param = list(params)[0]
