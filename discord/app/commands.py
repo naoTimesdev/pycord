@@ -527,6 +527,8 @@ class OptionChoice:
 def option(
     name: str,
     type: Union[SlashCommandOptionType, Type[Union[str, int, float]]],
+    *,
+    description: str = None,
     required: bool = True,
     choices: List[Union[OptionChoice, str]] = [],
     default: Optional[Any] = None,
