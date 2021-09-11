@@ -28,7 +28,7 @@ import asyncio
 import functools
 import inspect
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Union, overload
+from typing import Any, Callable, Dict, List, Optional, Type, Union, overload
 
 from ..enums import SlashCommandOptionType
 from ..member import Member
@@ -515,7 +515,6 @@ class Option:
     def __repr__(self):
         return f"<discord.app.commands.{self.__class__.__name__} name={self.name}>"
 
-
 class OptionChoice:
     def __init__(self, name: str, value: Optional[Union[str, int, float]] = None):
         self.name = name
@@ -523,6 +522,16 @@ class OptionChoice:
 
     def to_dict(self) -> Dict[str, Union[str, int, float]]:
         return {"name": self.name, "value": self.value}
+
+@overload
+def option(
+    name: str,
+    type: Union[SlashCommandOptionType, Type[Union[str, int, float]]],
+    required: bool = True,
+    choices: List[Union[OptionChoice, str]] = [],
+    default: Optional[Any] = None,
+) -> Option:
+    ...
 
 def option(name, type=None, **kwargs):
     """A decorator that can be used instead of typehinting Option"""
