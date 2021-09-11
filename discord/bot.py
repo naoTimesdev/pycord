@@ -210,8 +210,8 @@ class ApplicationCommandMixin:
         interaction: :class:`discord.Interaction`
             The interaction to process
         """
-        # if not interaction.is_command():
-        #     return
+        if not interaction.is_command():
+            return
 
         try:
             command = self.application_commands[interaction.data["id"]]
