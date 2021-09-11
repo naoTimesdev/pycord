@@ -1,3 +1,9 @@
+⚠ Fork Notice
+==============
+This fork includes some expermintal stuff from `features/slash` merged into master and some extra fixes that would allow naoTimes to depends on pycord only for prefixed commands and application commands.
+
+This fork is specifically made for naoTimes, I'm not responsible if yours are broken.
+
 pycord
 ==========
 
@@ -86,7 +92,7 @@ Quick Example
     bot.run("token")
 
 Normal Commands Example
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: py
 
