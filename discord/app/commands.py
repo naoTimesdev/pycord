@@ -828,6 +828,16 @@ class MessageCommand(ContextMenuCommand):
         else:
             return self.copy()
 
+@overload
+def application_command(
+    cls: Type[Union[SlashCommand, UserCommand, MessageCommand]] = SlashCommand,
+    *,
+    name: Optional[str] = MISSING,
+    guild_ids: Optional[List[int]] = MISSING,
+    checks: Optional[List[PredicateCallback]] = MISSING,
+) -> SlashCommand:
+    ...
+
 def application_command(cls=SlashCommand, **attrs):
     """A decorator that transforms a function into an :class:`.ApplicationCommand`. More specifically,
     usually one of :class:`.SlashCommand`, :class:`.UserCommand`, or :class:`.MessageCommand`. The exact class
@@ -866,8 +876,9 @@ def application_command(cls=SlashCommand, **attrs):
 
 @overload
 def slash_command(
-    name: str,
-    description: str,
+    *,
+    name: Optional[str] = MISSING,
+    description: Optional[str] = MISSING,
     guild_ids: Optional[List[int]] = MISSING,
     checks: Optional[List[PredicateCallback]] = MISSING,
 ) -> SlashCommand:
@@ -885,7 +896,8 @@ def slash_command(**kwargs) -> SlashCommand:
 
 @overload
 def user_command(
-    name: str,
+    *,
+    name: Optional[str] = MISSING,
     guild_ids: Optional[List[int]] = MISSING,
     checks: Optional[List[PredicateCallback]] = MISSING,
 ) -> UserCommand:
@@ -903,7 +915,7 @@ def user_command(**kwargs) -> UserCommand:
 
 @overload
 def message_command(
-    name: str,
+    name: Optional[str] = MISSING,
     guild_ids: Optional[List[int]] = MISSING,
     checks: Optional[List[PredicateCallback]] = MISSING,
 ) -> MessageCommand:
@@ -921,8 +933,8 @@ def message_command(**kwargs) -> MessageCommand:
 
 @overload
 def command(
-    name: str,
-    description: str,
+    *,
+    name: Optional[str] = MISSING,
     guild_ids: Optional[List[int]] = MISSING,
     checks: Optional[List[PredicateCallback]] = MISSING,
 ) -> SlashCommand:
