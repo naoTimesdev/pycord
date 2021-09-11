@@ -81,9 +81,9 @@ def wrap_callback(coro):
 
 def hooked_wrapped_callback(command, ctx, coro):
     @functools.wraps(coro)
-    async def wrapped(arg):
+    async def wrapped(*args, **kwargs):
         try:
-            ret = await coro(arg)
+            ret = await coro(*args, **kwargs)
         except ApplicationCommandError:
             raise
         except asyncio.CancelledError:
@@ -123,6 +123,8 @@ class _BaseCommand:
 class ApplicationCommand(_BaseCommand):
     cog = None
     name: str
+    args: List[Any]
+    kwargs: Dict[str, Any]
     _before_invoke: ClassVar[PredicateCallback]
     _after_invoke: ClassVar[PredicateCallback]
     checks: ClassVar[List[PredicateCallback]]
@@ -150,14 +152,18 @@ class ApplicationCommand(_BaseCommand):
 
         # TODO: Add cooldown
 
+        await self._parse_arguments(ctx)
         await self.call_before_hooks(ctx)
-        pass
+
+    async def _parse_arguments(self, ctx: ApplicationContext) -> None:
+        """Base _parse_arguments function to be called, please implement in child Class"""
+        raise NotImplementedError
 
     async def invoke(self, ctx: ApplicationContext) -> None:
         await self.prepare(ctx)
 
-        injected = hooked_wrapped_callback(self, ctx, self._invoke)
-        await injected(ctx)
+        injected = hooked_wrapped_callback(self, ctx, self.callback)
+        await injected(*self.args, **self.kwargs)
 
     async def can_run(self, ctx: ApplicationContext) -> bool:
 
@@ -464,38 +470,30 @@ class SlashCommand(ApplicationCommand):
             and other.description == self.description
         )
 
-    async def _invoke(self, ctx: ApplicationContext) -> None:
-        # TODO: Parse the args better, apply custom converters etc.
+    async def _parse_arguments(self, ctx: ApplicationContext) -> None:
+        args = [ctx] if self.cog is None else [self.cog, ctx]
         kwargs = {}
+
         for arg in ctx.interaction.data.get("options", []):
-            op = find(lambda x: x.name == arg["name"], self.options)
+            op = find(lambda o: o.name == arg["name"], self.options)
             arg = arg["value"]
 
-            # Checks if input_type is user, role or channel
             if (
                 SlashCommandOptionType.user.value
                 <= op.input_type.value
                 <= SlashCommandOptionType.role.value
             ):
-                name = "member" if op.input_type.name == "user" else op.input_type.name
+                name = "member" if op.input_type == "user" else op.input_type.name
                 arg = await get_or_fetch(ctx.guild, name, int(arg), default=int(arg))
-
             elif op.input_type == SlashCommandOptionType.mentionable:
                 arg_id = int(arg)
                 arg = await get_or_fetch(ctx.guild, "member", arg_id)
                 if arg is None:
                     arg = ctx.guild.get_role(arg_id) or arg_id
-
             kwargs[op.name] = arg
 
-        for o in self.options:
-            if o.name not in kwargs:
-                kwargs[o.name] = o.default
-        
-        if self.cog is not None:
-            await self.callback(self.cog, ctx, **kwargs)
-        else:
-            await self.callback(ctx, **kwargs)
+        self.args = args
+        self.kwargs = kwargs
 
     def qualified_name(self):
         return self.name
@@ -710,7 +708,9 @@ class UserCommand(ContextMenuCommand):
         self.__original_kwargs__ = kwargs.copy()
         return self
 
-    async def _invoke(self, ctx: ApplicationContext) -> None:
+    async def _parse_arguments(self, ctx: ApplicationContext) -> None:
+        args = [ctx] if self.cog is None else [self.cog, ctx]
+
         if "members" not in ctx.interaction.data["resolved"]:
             _data = ctx.interaction.data["resolved"]["users"]
             for i, v in _data.items():
@@ -732,11 +732,8 @@ class UserCommand(ContextMenuCommand):
                 guild=ctx.interaction._state._get_guild(ctx.interaction.guild_id),
                 state=ctx.interaction._state,
             )
-        
-        if self.cog is not None:
-            await self.callback(self.cog, ctx, target)
-        else:
-            await self.callback(ctx, target)
+        args.append(target)
+        self.args = args
 
 class MessageCommand(ContextMenuCommand):
     type = 3
@@ -747,7 +744,9 @@ class MessageCommand(ContextMenuCommand):
         self.__original_kwargs__ = kwargs.copy()
         return self
 
-    async def _invoke(self, ctx: ApplicationContext):
+    async def _parse_arguments(self, ctx: ApplicationContext) -> None:
+        args = [ctx] if self.cog is None else [self.cog, ctx]
+
         _data = ctx.interaction.data["resolved"]["messages"]
         for i, v in _data.items():
             v["id"] = int(i)
@@ -761,11 +760,8 @@ class MessageCommand(ContextMenuCommand):
 
         target = Message(state=ctx.interaction._state, channel=channel, data=message)
 
-        if self.cog is not None:
-            await self.callback(self.cog, ctx, target)
-        else:
-            await self.callback(ctx, target)
-
+        args.append(target)
+        self.args = args
 
 @overload
 def application_command(
