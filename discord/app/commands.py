@@ -28,14 +28,14 @@ import asyncio
 import functools
 import inspect
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, overload
 
 from ..enums import SlashCommandOptionType
 from ..member import Member
 from ..user import User
 from ..message import Message
 from .context import ApplicationContext
-from ..utils import find, get_or_fetch, async_all
+from ..utils import MISSING, find, get_or_fetch, async_all
 from ..errors import ValidationError, ClientException
 from .errors import ApplicationCommandError, CheckFailure, ApplicationCommandInvokeError
 
@@ -61,6 +61,8 @@ __all__ = (
     "user_command",
     "message_command",
 )
+
+PredicateCallback = Callable[[ApplicationContext], Optional[bool]]
 
 def wrap_callback(coro):
     @functools.wraps(coro)
@@ -91,6 +93,28 @@ def hooked_wrapped_callback(command, ctx, coro):
             await command.call_after_hooks(ctx)
         return ret
     return wrapped
+
+# Validation
+def validate_chat_input_name(name: Any):
+    if not isinstance(name, str):
+        raise TypeError("Name of a command must be a string.")
+    if " " in name:
+        raise ValidationError("Name of a chat input command cannot have spaces.")
+    if not name.islower():
+        raise ValidationError("Name of a chat input command must be lowercase.")
+    if len(name) > 32 or len(name) < 1:
+        raise ValidationError(
+            "Name of a chat input command must be less than 32 characters and non empty."
+        )
+
+
+def validate_chat_input_description(description: Any):
+    if not isinstance(description, str):
+        raise TypeError("Description of a command must be a string.")
+    if len(description) > 100 or len(description) < 1:
+        raise ValidationError(
+            "Description of a chat input command must be less than 100 characters and non empty."
+        )
 
 class _BaseCommand:
     __slots__ = ()
@@ -750,12 +774,12 @@ class MessageCommand(ContextMenuCommand):
             channel = ctx.interaction._state.add_dm_channel(data)
 
         target = Message(state=ctx.interaction._state, channel=channel, data=message)
-        
+
         if self.cog is not None:
             await self.callback(self.cog, ctx, target)
         else:
             await self.callback(ctx, target)
-    
+
     def copy(self):
         """Creates a copy of this command.
 
@@ -793,66 +817,6 @@ class MessageCommand(ContextMenuCommand):
         else:
             return self.copy()
 
-def slash_command(**kwargs) -> SlashCommand:
-    """Decorator for slash commands that invokes :func:`application_command`.
-    .. versionadded:: 2.0
-    Returns
-    --------
-    Callable[..., :class:`SlashCommand`]
-        A decorator that converts the provided method into a :class:`.SlashCommand`.
-    """
-    return application_command(cls=SlashCommand, **kwargs)
-
-def user_command(**kwargs) -> UserCommand:
-    """Decorator for user commands that invokes :func:`application_command`.
-    .. versionadded:: 2.0
-    Returns
-    --------
-    Callable[..., :class:`UserCommand`]
-        A decorator that converts the provided method into a :class:`.UserCommand`.
-    """
-    return application_command(cls=UserCommand, **kwargs)
-
-def message_command(**kwargs) -> MessageCommand:
-    """Decorator for message commands that invokes :func:`application_command`.
-    .. versionadded:: 2.0
-    Returns
-    --------
-    Callable[..., :class:`MessageCommand`]
-        A decorator that converts the provided method into a :class:`.MessageCommand`.
-    """
-    return application_command(cls=MessageCommand, **kwargs)
-
-def slash_command(**kwargs):
-    """Decorator for slash commands that invokes :func:`application_command`.
-    .. versionadded:: 2.0
-    Returns
-    --------
-    Callable[..., :class:`SlashCommand`]
-        A decorator that converts the provided method into a :class:`.SlashCommand`.
-    """
-    return application_command(cls=SlashCommand, **kwargs)
-
-def user_command(**kwargs):
-    """Decorator for user commands that invokes :func:`application_command`.
-    .. versionadded:: 2.0
-    Returns
-    --------
-    Callable[..., :class:`UserCommand`]
-        A decorator that converts the provided method into a :class:`.UserCommand`.
-    """
-    return application_command(cls=UserCommand, **kwargs)
-
-def message_command(**kwargs):
-    """Decorator for message commands that invokes :func:`application_command`.
-    .. versionadded:: 2.0
-    Returns
-    --------
-    Callable[..., :class:`MessageCommand`]
-        A decorator that converts the provided method into a :class:`.MessageCommand`.
-    """
-    return application_command(cls=MessageCommand, **kwargs)
-
 def application_command(cls=SlashCommand, **attrs):
     """A decorator that transforms a function into an :class:`.ApplicationCommand`. More specifically,
     usually one of :class:`.SlashCommand`, :class:`.UserCommand`, or :class:`.MessageCommand`. The exact class
@@ -888,8 +852,73 @@ def application_command(cls=SlashCommand, **attrs):
 
     return decorator
 
+
+@overload
+def slash_command(
+    name: str,
+    description: str,
+    guild_ids: Optional[List[int]] = MISSING,
+    checks: Optional[List[PredicateCallback]] = MISSING,
+) -> SlashCommand:
+    ...
+
+def slash_command(**kwargs) -> SlashCommand:
+    """Decorator for slash commands that invokes :func:`application_command`.
+    .. versionadded:: 2.0
+    Returns
+    --------
+    Callable[..., :class:`SlashCommand`]
+        A decorator that converts the provided method into a :class:`.SlashCommand`.
+    """
+    return application_command(cls=SlashCommand, **kwargs)
+
+@overload
+def user_command(
+    name: str,
+    guild_ids: Optional[List[int]] = MISSING,
+    checks: Optional[List[PredicateCallback]] = MISSING,
+) -> UserCommand:
+    ...
+
+def user_command(**kwargs) -> UserCommand:
+    """Decorator for user commands that invokes :func:`application_command`.
+    .. versionadded:: 2.0
+    Returns
+    --------
+    Callable[..., :class:`UserCommand`]
+        A decorator that converts the provided method into a :class:`.UserCommand`.
+    """
+    return application_command(cls=UserCommand, **kwargs)
+
+@overload
+def message_command(
+    name: str,
+    guild_ids: Optional[List[int]] = MISSING,
+    checks: Optional[List[PredicateCallback]] = MISSING,
+) -> MessageCommand:
+    ...
+
+def message_command(**kwargs) -> MessageCommand:
+    """Decorator for message commands that invokes :func:`application_command`.
+    .. versionadded:: 2.0
+    Returns
+    --------
+    Callable[..., :class:`MessageCommand`]
+        A decorator that converts the provided method into a :class:`.MessageCommand`.
+    """
+    return application_command(cls=MessageCommand, **kwargs)
+
+@overload
+def command(
+    name: str,
+    description: str,
+    guild_ids: Optional[List[int]] = MISSING,
+    checks: Optional[List[PredicateCallback]] = MISSING,
+) -> SlashCommand:
+    ...
+
 def command(**kwargs):
-    """There is an alias for :meth:`application_command`.
+    """This is an alias for :meth:`application_command`.
     .. note::
         This decorator is overriden by :func:`commands.command`.
     .. versionadded:: 2.0
@@ -899,25 +928,3 @@ def command(**kwargs):
         A decorator that converts the provided method into an :class:`.ApplicationCommand`.
     """
     return application_command(**kwargs)
-
-# Validation
-def validate_chat_input_name(name: Any):
-    if not isinstance(name, str):
-        raise TypeError("Name of a command must be a string.")
-    if " " in name:
-        raise ValidationError("Name of a chat input command cannot have spaces.")
-    if not name.islower():
-        raise ValidationError("Name of a chat input command must be lowercase.")
-    if len(name) > 32 or len(name) < 1:
-        raise ValidationError(
-            "Name of a chat input command must be less than 32 characters and non empty."
-        )
-
-
-def validate_chat_input_description(description: Any):
-    if not isinstance(description, str):
-        raise TypeError("Description of a command must be a string.")
-    if len(description) > 100 or len(description) < 1:
-        raise ValidationError(
-            "Description of a chat input command must be less than 100 characters and non empty."
-        )
