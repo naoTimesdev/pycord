@@ -42,6 +42,7 @@ __all__ = (
     'ClientException',
     'NoMoreItems',
     'GatewayNotFound',
+    'ValidationError',
     'HTTPException',
     'Forbidden',
     'NotFound',
@@ -91,6 +92,12 @@ class GatewayNotFound(DiscordException):
     def __init__(self):
         message = 'The gateway to connect to discord was not found.'
         super().__init__(message)
+
+
+class ValidationError(DiscordException):
+    """An Exception that is raised when there is a Validation Error."""
+
+    pass
 
 
 def _flatten_error_dict(d: Dict[str, Any], key: str = '') -> Dict[str, str]:
