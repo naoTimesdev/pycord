@@ -456,8 +456,9 @@ class Cog(metaclass=CogMeta):
                             bot.remove_command(to_undo.name)
                     raise e
         for application in self.__cog_applications__:
+            # Manually inject cog into the application or it would broke.
+            application._inject_cog(self)
             bot.add_application_command(application)
-            
 
         # check if we're overriding the default
         if cls.bot_check is not Cog.bot_check:

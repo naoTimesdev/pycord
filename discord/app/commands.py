@@ -28,16 +28,24 @@ import asyncio
 import functools
 import inspect
 from collections import OrderedDict
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Protocol, Type, Union, overload
+from typing import (TYPE_CHECKING, Any, Callable, ClassVar, Dict, List,
+                    Optional, Protocol, Type, TypeVar, Union, overload)
 
 from ..enums import SlashCommandOptionType
+from ..errors import ClientException, ValidationError
 from ..member import Member
-from ..user import User
 from ..message import Message
+from ..user import User
+from ..utils import MISSING, async_all, find, get_or_fetch
 from .context import ApplicationContext
-from ..utils import MISSING, find, get_or_fetch, async_all
-from ..errors import ValidationError, ClientException
-from .errors import ApplicationCommandError, CheckFailure, ApplicationCommandInvokeError
+from .errors import (ApplicationCommandError, ApplicationCommandInvokeError,
+                     CheckFailure)
+
+if TYPE_CHECKING:
+    from ..ext.commands import Cog
+
+
+CogT = TypeVar('CogT', bound='Cog')
 
 __all__ = (
     "_BaseCommand",
@@ -121,7 +129,7 @@ class _BaseCommand:
     __slots__ = ()
 
 class ApplicationCommand(_BaseCommand):
-    cog = None
+    cog: CogT = None
     name: str
     args: List[Any]
     kwargs: Dict[str, Any]
@@ -142,6 +150,9 @@ class ApplicationCommand(_BaseCommand):
         """:class:`str`: Retrieves the fully qualified application name.
         """
         return self.name
+
+    def _inject_cog(self, cog: CogT):
+        self.cog = cog
 
     async def prepare(self, ctx: ApplicationContext) -> None:
         # This should be same across all 3 types
