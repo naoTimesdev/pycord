@@ -46,20 +46,15 @@ __all__ = (
     "Option",
     "OptionChoice",
     "option",
-    "slash_command",
-    "application_command",
-    "user_command",
-    "message_command",
-    "command",
     "SlashCommandGroup",
     "ContextMenuCommand",
     "UserCommand",
     "MessageCommand",
-    "command",
     "application_command",
     "slash_command",
     "user_command",
     "message_command",
+    "command",
 )
 
 PredicateCallback = Callable[[ApplicationContext], Optional[bool]]
