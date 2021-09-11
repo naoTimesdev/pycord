@@ -237,6 +237,11 @@ class Cog(metaclass=CogMeta):
                 parent.remove_command(command.name)  # type: ignore
                 parent.add_command(command)  # type: ignore
 
+        # Inject the cog/self into the application.
+        # Workaround since it would broke apart if it's not injected.
+        for application in self.__cog_applications__:
+            application._inject_cog(self)
+
         return self
 
     def get_commands(self) -> List[Command]:
@@ -456,8 +461,6 @@ class Cog(metaclass=CogMeta):
                             bot.remove_command(to_undo.name)
                     raise e
         for application in self.__cog_applications__:
-            # Manually inject cog into the application or it would broke.
-            application._inject_cog(self)
             bot.add_application_command(application)
 
         # check if we're overriding the default
