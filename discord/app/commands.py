@@ -28,7 +28,7 @@ import asyncio
 import functools
 import inspect
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, Type, Union, overload
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Protocol, Type, Union, overload
 
 from ..enums import SlashCommandOptionType
 from ..member import Member
@@ -58,6 +58,12 @@ __all__ = (
 )
 
 PredicateCallback = Callable[[ApplicationContext], Optional[bool]]
+
+class ApplicationCallback(Protocol):
+    """A callback that can be used by an :class:`ApplicationCommand`."""
+
+    def __call__(self, ctx: ApplicationContext, *args: Any, **kwargs: Dict[str, Any]) -> Any:
+        ...
 
 def wrap_callback(coro):
     @functools.wraps(coro)
@@ -116,12 +122,24 @@ class _BaseCommand:
 
 class ApplicationCommand(_BaseCommand):
     cog = None
+    name: str
+    _before_invoke: ClassVar[PredicateCallback]
+    _after_invoke: ClassVar[PredicateCallback]
+    checks: ClassVar[List[PredicateCallback]]
+    __original_kwargs__: ClassVar[Dict[Any, Any]]
+    callback: ClassVar[ApplicationCallback]
 
     def __repr__(self):
         return f"<discord.app.commands.{self.__class__.__name__} name={self.name}>"
 
     def __eq__(self, other):
         return isinstance(other, self.__class__)
+
+    @property
+    def qualified_name(self) -> str:
+        """:class:`str`: Retrieves the fully qualified application name.
+        """
+        return self.name
 
     async def prepare(self, ctx: ApplicationContext) -> None:
         # This should be same across all 3 types
@@ -296,6 +314,43 @@ class ApplicationCommand(_BaseCommand):
         if hook is not None:
             await hook(ctx)
 
+    def copy(self):
+        """Creates a copy of this command.
+
+        Returns
+        --------
+        :class:`MessageCommand`
+            A new instance of this command.
+        """
+        ret = self.__class__(self.callback, **self.__original_kwargs__)
+        return self._ensure_assignment_on_copy(ret)
+
+    def _ensure_assignment_on_copy(self, other: "ApplicationCommand"):
+        other._before_invoke = self._before_invoke
+        other._after_invoke = self._after_invoke
+        if self.checks != other.checks:
+            other.checks = self.checks.copy()
+        #if self._buckets.valid and not other._buckets.valid:
+        #    other._buckets = self._buckets.copy()
+        #if self._max_concurrency != other._max_concurrency:
+        #    # _max_concurrency won't be None at this point
+        #    other._max_concurrency = self._max_concurrency.copy()  # type: ignore
+
+        try:
+            other.on_error = self.on_error
+        except AttributeError:
+            pass
+        return other
+
+    def _update_copy(self, kwargs: Dict[str, Any]):
+        if kwargs:
+            kw = kwargs.copy()
+            kw.update(self.__original_kwargs__)
+            copy = self.__class__(self.callback, **kw)
+            return self._ensure_assignment_on_copy(copy)
+        else:
+            return self.copy()
+
 class SlashCommand(ApplicationCommand):
     type = 1
 
@@ -444,43 +499,6 @@ class SlashCommand(ApplicationCommand):
 
     def qualified_name(self):
         return self.name
-
-    def copy(self):
-        """Creates a copy of this command.
-
-        Returns
-        --------
-        :class:`SlashCommand`
-            A new instance of this command.
-        """
-        ret = self.__class__(self.callback, **self.__original_kwargs__)
-        return self._ensure_assignment_on_copy(ret)
-
-    def _ensure_assignment_on_copy(self, other):
-        other._before_invoke = self._before_invoke
-        other._after_invoke = self._after_invoke
-        if self.checks != other.checks:
-            other.checks = self.checks.copy()
-        #if self._buckets.valid and not other._buckets.valid:
-        #    other._buckets = self._buckets.copy()
-        #if self._max_concurrency != other._max_concurrency:
-        #    # _max_concurrency won't be None at this point
-        #    other._max_concurrency = self._max_concurrency.copy()  # type: ignore
-
-        try:
-            other.on_error = self.on_error
-        except AttributeError:
-            pass
-        return other
-
-    def _update_copy(self, kwargs: Dict[str, Any]):
-        if kwargs:
-            kw = kwargs.copy()
-            kw.update(self.__original_kwargs__)
-            copy = self.__class__(self.callback, **kw)
-            return self._ensure_assignment_on_copy(copy)
-        else:
-            return self.copy()
 
 class Option:
     def __init__(
@@ -719,44 +737,6 @@ class UserCommand(ContextMenuCommand):
             await self.callback(self.cog, ctx, target)
         else:
             await self.callback(ctx, target)
-    
-    def copy(self):
-        """Creates a copy of this command.
-
-        Returns
-        --------
-        :class:`UserCommand`
-            A new instance of this command.
-        """
-        ret = self.__class__(self.callback, **self.__original_kwargs__)
-        return self._ensure_assignment_on_copy(ret)
-
-    def _ensure_assignment_on_copy(self, other):
-        other._before_invoke = self._before_invoke
-        other._after_invoke = self._after_invoke
-        if self.checks != other.checks:
-            other.checks = self.checks.copy()
-        #if self._buckets.valid and not other._buckets.valid:
-        #    other._buckets = self._buckets.copy()
-        #if self._max_concurrency != other._max_concurrency:
-        #    # _max_concurrency won't be None at this point
-        #    other._max_concurrency = self._max_concurrency.copy()  # type: ignore
-
-        try:
-            other.on_error = self.on_error
-        except AttributeError:
-            pass
-        return other
-
-    def _update_copy(self, kwargs: Dict[str, Any]):
-        if kwargs:
-            kw = kwargs.copy()
-            kw.update(self.__original_kwargs__)
-            copy = self.__class__(self.callback, **kw)
-            return self._ensure_assignment_on_copy(copy)
-        else:
-            return self.copy()
-
 
 class MessageCommand(ContextMenuCommand):
     type = 3
@@ -786,42 +766,6 @@ class MessageCommand(ContextMenuCommand):
         else:
             await self.callback(ctx, target)
 
-    def copy(self):
-        """Creates a copy of this command.
-
-        Returns
-        --------
-        :class:`MessageCommand`
-            A new instance of this command.
-        """
-        ret = self.__class__(self.callback, **self.__original_kwargs__)
-        return self._ensure_assignment_on_copy(ret)
-
-    def _ensure_assignment_on_copy(self, other):
-        other._before_invoke = self._before_invoke
-        other._after_invoke = self._after_invoke
-        if self.checks != other.checks:
-            other.checks = self.checks.copy()
-        #if self._buckets.valid and not other._buckets.valid:
-        #    other._buckets = self._buckets.copy()
-        #if self._max_concurrency != other._max_concurrency:
-        #    # _max_concurrency won't be None at this point
-        #    other._max_concurrency = self._max_concurrency.copy()  # type: ignore
-
-        try:
-            other.on_error = self.on_error
-        except AttributeError:
-            pass
-        return other
-
-    def _update_copy(self, kwargs: Dict[str, Any]):
-        if kwargs:
-            kw = kwargs.copy()
-            kw.update(self.__original_kwargs__)
-            copy = self.__class__(self.callback, **kw)
-            return self._ensure_assignment_on_copy(copy)
-        else:
-            return self.copy()
 
 @overload
 def application_command(
