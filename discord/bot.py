@@ -33,11 +33,11 @@ from .shard import AutoShardedClient
 from .utils import get
 from .app import (
     SlashCommand,
-    SubCommandGroup,
+    SlashCommandGroup,
     MessageCommand,
     UserCommand,
     ApplicationCommand,
-    InteractionContext,
+    ApplicationContext,
 )
 from .errors import Forbidden
 from .interactions import Interaction
@@ -330,15 +330,15 @@ class ApplicationCommandMixin:
         """
         return self.application_command(**kwargs)
 
-    def command_group(self, name: str, description: str, guild_ids=None) -> SubCommandGroup:
+    def command_group(self, name: str, description: str, guild_ids=None) -> SlashCommandGroup:
         # TODO: Write documentation for this. I'm not familiar enough with what this function does to do it myself.
-        group = SubCommandGroup(name, description, guild_ids)
+        group = SlashCommandGroup(name, description, guild_ids)
         self.add_application_command(group)
         return group
 
     async def get_application_context(
         self, interaction: Interaction, cls=None
-    ) -> InteractionContext:
+    ) -> ApplicationContext:
         r"""|coro|
 
         Returns the invocation context from the interaction.
@@ -353,11 +353,11 @@ class ApplicationCommandMixin:
 
         Returns
         --------
-        :class:`.InteractionContext`
+        :class:`.ApplicationContext`
             The invocation context.
         """
         if cls == None:
-            cls = InteractionContext
+            cls = ApplicationContext
         return cls(self, interaction)
 
 
